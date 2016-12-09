@@ -10,6 +10,9 @@ type CitizenLabCountryList struct {
 	country string
 }
 
+// URL format string to download the latest Citizen Lab test list from. The %s
+// will be replaced with either the two letter country code, or with "global"
+// as specified in the call to SetCountry before the job feeder is activated.
 const CitizenLabCountryListURL string = "https://raw.githubusercontent.com/citizenlab/test-lists/master/lists/%s.csv"
 
 // The SetCountry method allows selection of the Citizen Lab test list to use.

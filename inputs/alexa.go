@@ -5,8 +5,11 @@ import (
 	"log"
 )
 
-type AlexaTopsitesList string
+type AlexaTopsitesList struct {
+	TestList
+}
 
+// URL to download the latest Alexa Topsites list from
 const AlexaTopsitesURL string = "http://s3.amazonaws.com/alexa-static/top-1m.csv.zip"
 
 func (l *AlexaTopsitesList) FeedJobs(jobs chan map[string]interface{}) {
