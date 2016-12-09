@@ -3,15 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"pathspider.net/hellfire/inputs"
 	"net"
 	"os"
-	"time"
+	"pathspider.net/hellfire/inputs"
 	"sync"
+	"time"
 )
 
 func main() {
-	// FIXME: Use docopt https://github.com/docopt/docopt.go
+	// BUG(irl): Use docopt https://github.com/docopt/docopt.go
 	topsites := flag.Bool("topsites", false, "Use the Alexa Topsites list")
 	citizenlab := flag.String("citizenlab", "none", "Use the Citizen Lab test list for specified country")
 	flag.Parse()
@@ -51,7 +51,7 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			fmt.Println("Worker", id, "got a job: ", job)
 			var attempt int
 			var ips []net.IP
-			for attempt = 0 ; attempt <= 3 ; attempt++ {
+			for attempt = 0; attempt <= 3; attempt++ {
 				ips, _ = net.LookupIP(job["domain"].(string))
 				if len(ips) == 0 {
 					time.Sleep(1)
@@ -101,9 +101,9 @@ func performLookups(testList inputs.TestList) {
 	testList.FeedJobs(jobs)
 	jobs <- make(map[string]interface{})
 	lookupWaitGroup.Wait()
-	<- jobs // Read last shutdown sentinel from the queue left by the
-		// final worker to exit
-		// https://blog.golang.org/pipelines - This is a better way
+	<-jobs // Read last shutdown sentinel from the queue left by the
+	// final worker to exit
+	// https://blog.golang.org/pipelines - This is a better way
 	fmt.Println("Workers now all finished")
 	close(jobs)
 

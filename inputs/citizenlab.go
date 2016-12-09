@@ -12,8 +12,12 @@ type CitizenLabCountryList struct {
 
 const CitizenLabCountryListURL string = "https://raw.githubusercontent.com/citizenlab/test-lists/master/lists/%s.csv"
 
+// The SetCountry method allows selection of the Citizen Lab test list to use.
+// The full list of countries available can be found at
+// https://github.com/citizenlab/test-lists/tree/master/lists. This method will
+// also accept "global" as a country name, selecting the global test list.
 func (l *CitizenLabCountryList) SetCountry(country string) {
-	// FIXME: Make lowercase
+	// BUG(irl): Make lowercase
 	if country == "global" || len(country) == 2 {
 		l.country = country
 	} else {

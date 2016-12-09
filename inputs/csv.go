@@ -8,6 +8,9 @@ import (
 	"os"
 )
 
+// A CSVList handles input in CSV format. There may be a more specific type
+// available and that should be used if that is the case (e.g. for the
+// Alexa or Citizen Lab test lists).
 type CSVList struct {
 	TestList
 	reader io.Reader
