@@ -3,6 +3,7 @@ package inputs
 import (
 	"fmt"
 	"log"
+	"strings"
 )
 
 type CitizenLabCountryList struct {
@@ -19,8 +20,10 @@ const CitizenLabCountryListURL string = "https://raw.githubusercontent.com/citiz
 // The full list of countries available can be found at
 // https://github.com/citizenlab/test-lists/tree/master/lists. This method will
 // also accept "global" as a country name, selecting the global test list.
+//
+// This function must be called before FeedJobs() or the application will panic.
 func (l *CitizenLabCountryList) SetCountry(country string) {
-	// BUG(irl): Make lowercase
+	country = strings.ToLower(country)
 	if country == "global" || len(country) == 2 {
 		l.country = country
 	} else {
@@ -29,6 +32,9 @@ func (l *CitizenLabCountryList) SetCountry(country string) {
 }
 
 func (l *CitizenLabCountryList) FeedJobs(jobs chan map[string]interface{}) {
+	if l.country == nil {
+		panic("The country to use for the Citizen Lab test was not specified")
+	}
 	listUrl := fmt.Sprintf(CitizenLabCountryListURL, l.country)
 	urlReader, err := getReaderFromUrl(listUrl)
 	if err != nil {
