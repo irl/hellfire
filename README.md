@@ -3,6 +3,9 @@ Hellfire
 
 _PAT**H**spider **E**ffects **Li**st **Re**solver_
 
+[![Travis](https://img.shields.io/travis/irl/hellfire.svg)](https://travis-ci.org/irl/hellfire)
+[![GoDoc](https://godoc.org/github.com/irl/hellfire?status.svg)](https://godoc.org/github.com/irl/hellfire)
+
 Hellfire is a parallelised DNS resolver. It is written in Go and for the
 purpose of generating input lists to [PATHspider](https://pathspider.net/),
 though may be useful for other applications.
