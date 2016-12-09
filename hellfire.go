@@ -1,38 +1,49 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/docopt/docopt-go"
 	"net"
-	"os"
 	"pathspider.net/hellfire/inputs"
 	"sync"
 	"time"
 )
 
 func main() {
-	// BUG(irl): Use docopt https://github.com/docopt/docopt.go
-	topsites := flag.Bool("topsites", false, "Use the Alexa Topsites list")
-	citizenlab := flag.String("citizenlab", "none", "Use the Citizen Lab test list for specified country")
-	flag.Parse()
+	usage := `Hellfire: PATHspider Effects List Resolver
+
+Hellfire is a parallelised DNS resolver. It builds effects lists for input to
+PATHspider measurements. For sources where the filename is optional, the latest
+source will be downloaded from the Internet when the filename is omitted.
+
+Usage:
+  hellfire --topsites [--file=<filename>]
+  hellfire --citizenlab (--country=<cc>|--file=<filename>)
+  hellfire --csv --file=<filename>
+  hellfire --txt --file=<filename>
+
+Options:
+  -h --help     Show this screen.
+  --version     Show version.`
+
+	arguments, _ := docopt.Parse(usage, nil, true, "Hellfire dev", false)
 
 	var testList inputs.TestList
-
-	if *topsites && (*citizenlab != "none") {
-		panic("You can only select one source")
-	} else if !*topsites && (*citizenlab == "none") {
-		flag.PrintDefaults()
-		os.Exit(1)
-	}
-
-	if *topsites {
+	//BUG(irl): Filenames are ignored
+	//BUG(irl): CSV type is ignored
+	//BUG(irl): TXT type is ignored
+	if arguments["--topsites"].(bool) {
 		testList = new(inputs.AlexaTopsitesList)
-	} else {
-		l := new(inputs.CitizenLabCountryList)
-		l.SetCountry(*citizenlab)
-		testList = l
+	} else if arguments["--citizenlab"].(bool) {
+		testList = new(inputs.CitizenLabCountryList)
+		testList.(*inputs.CitizenLabCountryList).SetCountry(arguments["--country"].(string))
 	}
-	performLookups(testList)
+
+	if testList != nil {
+		performLookups(testList)
+	} else {
+		panic("An error occured building the input provider")
+	}
 }
 
 func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
