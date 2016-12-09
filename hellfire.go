@@ -1,3 +1,24 @@
+
+// Hellfire is a parallelised DNS resolver. It builds effects lists for input
+// to PATHspider measurements. For sources where the filename is optional, the
+// latest source will be downloaded from the Internet when the filename is
+// omitted.
+// 
+// BASIC USAGE
+//
+//  Usage:
+//    hellfire --topsites [--file=<filename>]
+//    hellfire --citizenlab (--country=<cc>|--file=<filename>)
+//    hellfire --csv --file=<filename>
+//    hellfire --txt --file=<filename>
+//
+//  Options:
+//    -h --help     Show this screen.
+//    --version     Show version.`
+//
+// SEE ALSO
+//
+// The PATHspider website can be found at https://pathspider.net/.
 package main
 
 import (
