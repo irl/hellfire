@@ -14,7 +14,7 @@
 //
 //  Options:
 //    -h --help     Show this screen.
-//    --version     Show version.`
+//    --version     Show version.
 //
 // SEE ALSO
 //
