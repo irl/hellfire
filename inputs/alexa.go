@@ -1,4 +1,4 @@
-package inputs
+package inputs // import "pathspider.net/hellfire/inputs"
 
 import (
 	"archive/zip"
