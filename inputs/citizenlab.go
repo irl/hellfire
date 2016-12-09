@@ -32,7 +32,7 @@ func (l *CitizenLabCountryList) SetCountry(country string) {
 }
 
 func (l *CitizenLabCountryList) FeedJobs(jobs chan map[string]interface{}) {
-	if l.country == nil {
+	if l.country == "" {
 		panic("The country to use for the Citizen Lab test was not specified")
 	}
 	listUrl := fmt.Sprintf(CitizenLabCountryListURL, l.country)
