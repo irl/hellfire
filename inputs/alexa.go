@@ -2,11 +2,7 @@ package inputs
 
 import (
 	"archive/zip"
-	"bufio"
-	"encoding/csv"
-	"io"
 	"log"
-	"strconv"
 )
 
 type AlexaTopsitesList string
@@ -14,7 +10,7 @@ type AlexaTopsitesList string
 const AlexaTopsitesURL string = "http://s3.amazonaws.com/alexa-static/top-1m.csv.zip"
 
 func (l *AlexaTopsitesList) FeedJobs(jobs chan map[string]interface{}) {
-	var topsites *csv.Reader
+	var topsites *CSVList
 
 	urlReader, err := getReaderFromUrl(AlexaTopsitesURL)
 	if err != nil {
@@ -29,21 +25,15 @@ func (l *AlexaTopsitesList) FeedJobs(jobs chan map[string]interface{}) {
 	for _, zf := range zr.File {
 		if zf.Name == "top-1m.csv" {
 			f, _ := zf.Open()
-			topsites = csv.NewReader(bufio.NewReader(f))
-		}
-	}
-	if topsites == nil {
-		panic("There was no top-1m.csv in the zip archive.")
-	}
-	for {
-		record, err := topsites.Read()
-		if err == io.EOF {
+			topsites = CSVListFromReader(f)
 			break
 		}
-
-		r := make(map[string]interface{})
-		r["domain"] = record[1]
-		r["rank"], _ = strconv.Atoi(record[0])
-		jobs <- r
 	}
+
+	if topsites == nil {
+		panic("Did not find top-1m.csv in the zip archive")
+	}
+
+	topsites.SetHeader([]string{"rank", "domain"})
+	topsites.FeedJobs(jobs)
 }
