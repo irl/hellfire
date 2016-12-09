@@ -86,8 +86,8 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 func performLookups(testList inputs.TestList) {
 	var lookupWaitGroup sync.WaitGroup
 	var outputWaitGroup sync.WaitGroup
-	var jobs chan map[string]interface{} = make(chan map[string]interface{}, 1)
-	var results chan map[string]interface{} = make(chan map[string]interface{})
+	jobs := make(chan map[string]interface{}, 1)
+	results := make(chan map[string]interface{})
 
 	// Spawn lookup workers
 	for i := 0; i < 300; i++ {
