@@ -8,7 +8,9 @@
 //
 //  Usage:
 //    hellfire --topsites [--file=<filename>]
+//    hellfire --cisco [--file=<filename>]
 //    hellfire --citizenlab (--country=<cc>|--file=<filename>)
+//    hellfire --opendns (--list=<name>|--file=<filename>)
 //    hellfire --csv --file=<filename>
 //    hellfire --txt --file=<filename>
 //
@@ -39,7 +41,9 @@ source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
   hellfire --topsites [--file=<filename>]
+  hellfire --cisco [--file=<filename>]
   hellfire --citizenlab (--country=<cc>|--file=<filename>)
+  hellfire --opendns (--list=<name>|--file=<filename>)
   hellfire --csv --file=<filename>
   hellfire --txt --file=<filename>
 
@@ -55,9 +59,14 @@ Options:
 	//BUG(irl): TXT type is ignored
 	if arguments["--topsites"].(bool) {
 		testList = new(inputs.AlexaTopsitesList)
+	} else if arguments["--cisco"].(bool) {
+		testList = new(inputs.CiscoUmbrellaList)
 	} else if arguments["--citizenlab"].(bool) {
 		testList = new(inputs.CitizenLabCountryList)
 		testList.(*inputs.CitizenLabCountryList).SetCountry(arguments["--country"].(string))
+	} else if arguments["--opendns"].(bool) {
+		testList = new(inputs.OpenDNSList)
+		testList.(*inputs.OpenDNSList).SetListName(arguments["--list"].(string))
 	}
 
 	if testList != nil {
