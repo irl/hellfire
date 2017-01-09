@@ -25,6 +25,7 @@ type TestList interface {
 	// "domain" and "url", the "url" value will be ignored and the "domain"
 	// value used directly.
 	FeedJobs(chan map[string]interface{})
+	SetFilename(string)
 }
 
 func getReaderFromUrl(url string) (*bytes.Reader, error) {

@@ -63,13 +63,18 @@ Options:
 		testList = new(inputs.CiscoUmbrellaList)
 	} else if arguments["--citizenlab"].(bool) {
 		testList = new(inputs.CitizenLabCountryList)
-		testList.(*inputs.CitizenLabCountryList).SetCountry(arguments["--country"].(string))
+		if arguments["--country"] != nil {
+			testList.(*inputs.CitizenLabCountryList).SetCountry(arguments["--country"].(string))
+		}
 	} else if arguments["--opendns"].(bool) {
 		testList = new(inputs.OpenDNSList)
 		testList.(*inputs.OpenDNSList).SetListName(arguments["--list"].(string))
 	}
 
 	if testList != nil {
+		if arguments["--file"] != nil {
+			testList.SetFilename(arguments["--file"].(string))
+		}
 		performLookups(testList)
 	} else {
 		panic("An error occured building the input provider")
