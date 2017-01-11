@@ -24,6 +24,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/docopt/docopt-go"
 	"net"
@@ -87,16 +88,13 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	jobs chan map[string]interface{},
 	results chan map[string]interface{}) {
 	lookupWaitGroup.Add(1)
-	fmt.Println("Spawning worker ", id)
 	go func(id int, lookupWaitGroup *sync.WaitGroup, jobs chan map[string]interface{}, results chan map[string]interface{}) {
 		defer lookupWaitGroup.Done()
 		for job := range jobs {
 			if job["domain"] == nil {
 				jobs <- make(map[string]interface{})
-				fmt.Println("Worker", id, "cascaded shutdown signal")
 				break
 			}
-			fmt.Println("Worker", id, "got a job: ", job)
 			var attempt int
 			var ips []net.IP
 			for attempt = 0; attempt <= 3; attempt++ {
@@ -111,22 +109,20 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			job["attempts"] = attempt
 			results <- job
 		}
-		fmt.Println("Worker", id, "exiting")
 	}(id, lookupWaitGroup, jobs, results)
 }
 
 func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}) {
 	outputWaitGroup.Add(1)
-	fmt.Println("Spawning output printer")
 	go func(results chan map[string]interface{}) {
 		defer outputWaitGroup.Done()
 		for {
 			result := <-results
 			if result["domain"] == nil {
-				fmt.Println("Output printer got shutdown signal")
 				break
 			}
-			fmt.Println("Result: ", result["domain"], result["ips"], result["attempts"])
+			b, _ := json.Marshal(result)
+			fmt.Println(string(b))
 		}
 	}(results)
 }
@@ -152,7 +148,6 @@ func performLookups(testList inputs.TestList) {
 	<-jobs // Read last shutdown sentinel from the queue left by the
 	// final worker to exit
 	// https://blog.golang.org/pipelines - This is a better way
-	fmt.Println("Workers now all finished")
 	close(jobs)
 
 	// Shutdown the output printer
