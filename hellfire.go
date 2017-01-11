@@ -97,11 +97,14 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			}
 			var attempt int
 			var ips []net.IP
-			for attempt = 0; attempt <= 3; attempt++ {
+			for attempt = 1; ; attempt++ {
 				ips, _ = net.LookupIP(job["domain"].(string))
 				if len(ips) == 0 {
 					time.Sleep(1)
 				} else {
+					break
+				}
+				if attempt == 3 {
 					break
 				}
 			}
