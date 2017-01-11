@@ -8,7 +8,7 @@ import (
 
 type CitizenLabCountryList struct {
 	TestList
-	country string
+	country  string
 	filename string
 }
 
