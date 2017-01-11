@@ -68,7 +68,9 @@ Options:
 		}
 	} else if arguments["--opendns"].(bool) {
 		testList = new(inputs.OpenDNSList)
-		testList.(*inputs.OpenDNSList).SetListName(arguments["--list"].(string))
+		if arguments["--list"] != nil {
+			testList.(*inputs.OpenDNSList).SetListName(arguments["--list"].(string))
+		}
 	}
 
 	if testList != nil {
