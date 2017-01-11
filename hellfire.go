@@ -1,18 +1,17 @@
-
 // Hellfire is a parallelised DNS resolver. It builds effects lists for input
 // to PATHspider measurements. For sources where the filename is optional, the
 // latest source will be downloaded from the Internet when the filename is
 // omitted.
-// 
+//
 // BASIC USAGE
 //
 //  Usage:
-//    hellfire --topsites [--file=<filename>]
-//    hellfire --cisco [--file=<filename>]
-//    hellfire --citizenlab (--country=<cc>|--file=<filename>)
-//    hellfire --opendns (--list=<name>|--file=<filename>)
-//    hellfire --csv --file=<filename>
-//    hellfire --txt --file=<filename>
+//    hellfire --topsites [--file=<filename>] [--all]
+//    hellfire --cisco [--file=<filename>] [--all]
+//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all]
+//    hellfire --opendns (--list=<name>|--file=<filename>) [--all]
+//    hellfire --csv --file=<filename> [--all]
+//    hellfire --txt --file=<filename> [--all]
 //
 //  Options:
 //    -h --help     Show this screen.
@@ -29,6 +28,7 @@ import (
 	"github.com/docopt/docopt-go"
 	"net"
 	"pathspider.net/hellfire/inputs"
+	"strings"
 	"sync"
 	"time"
 )
@@ -41,12 +41,12 @@ PATHspider measurements. For sources where the filename is optional, the latest
 source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
-  hellfire --topsites [--file=<filename>]
-  hellfire --cisco [--file=<filename>]
-  hellfire --citizenlab (--country=<cc>|--file=<filename>)
-  hellfire --opendns (--list=<name>|--file=<filename>)
-  hellfire --csv --file=<filename>
-  hellfire --txt --file=<filename>
+  hellfire --topsites [--file=<filename>] [--all]
+  hellfire --cisco [--file=<filename>] [--all]
+  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all]
+  hellfire --opendns (--list=<name>|--file=<filename>) [--all]
+  hellfire --csv --file=<filename> [--all]
+  hellfire --txt --file=<filename> [--all]
 
 Options:
   -h --help     Show this screen.
@@ -78,7 +78,7 @@ Options:
 		if arguments["--file"] != nil {
 			testList.SetFilename(arguments["--file"].(string))
 		}
-		performLookups(testList)
+		performLookups(testList, arguments["--all"].(bool))
 	} else {
 		panic("An error occured building the input provider")
 	}
@@ -115,7 +115,7 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	}(id, lookupWaitGroup, jobs, results)
 }
 
-func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}) {
+func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, printAllResults bool) {
 	outputWaitGroup.Add(1)
 	go func(results chan map[string]interface{}) {
 		defer outputWaitGroup.Done()
@@ -124,13 +124,40 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 			if result["domain"] == nil {
 				break
 			}
-			b, _ := json.Marshal(result)
-			fmt.Println(string(b))
+			if printAllResults {
+				b, _ := json.Marshal(result)
+				fmt.Println(string(b))
+			} else {
+				found4 := false
+				found6 := false
+				ips := result["ips"].([]net.IP)
+				delete(result, "ips")
+				for _, ipo := range ips {
+					ip := ipo.String()
+					if strings.Contains(ip, ".") {
+						if found4 {
+							continue
+						} else {
+							found4 = true
+						}
+					} else {
+						if found6 {
+							continue
+						} else {
+							found6 = true
+						}
+					}
+					result["ip"] = ip
+					b, _ := json.Marshal(result)
+					fmt.Println(string(b))
+					delete(result, "ip")
+				}
+			}
 		}
 	}(results)
 }
 
-func performLookups(testList inputs.TestList) {
+func performLookups(testList inputs.TestList, printAllResults bool) {
 	var lookupWaitGroup sync.WaitGroup
 	var outputWaitGroup sync.WaitGroup
 	jobs := make(chan map[string]interface{}, 1)
@@ -142,7 +169,7 @@ func performLookups(testList inputs.TestList) {
 	}
 
 	// Spawn output printer
-	outputPrinter(&outputWaitGroup, results)
+	outputPrinter(&outputWaitGroup, results, printAllResults)
 
 	// Submit jobs
 	testList.FeedJobs(jobs)
