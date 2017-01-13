@@ -16,9 +16,12 @@ Input and Output Formats
 The following input formats are supported:
 
  * [Alexa Topsites](http://www.alexa.com/topsites)
+ * [Cisco Umbrella Popularity
+   List](http://s3-us-west-1.amazonaws.com/umbrella-static/index.html)
  * [Citizen Lab Test
    Lists](https://github.com/citizenlab/test-lists/tree/master/lists) (by
    country)
+ * [OpenDNS Public Domain Lists](https://github.com/opendns/public-domain-lists)
  * Plain text (not implemented yet)
  * JSON (not implemented yet)
 
