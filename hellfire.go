@@ -6,12 +6,12 @@
 // BASIC USAGE
 //
 //  Usage:
-//    hellfire --topsites [--file=<filename>] [--all]
-//    hellfire --cisco [--file=<filename>] [--all]
-//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all]
-//    hellfire --opendns (--list=<name>|--file=<filename>) [--all]
-//    hellfire --csv --file=<filename> [--all]
-//    hellfire --txt --file=<filename> [--all]
+//    hellfire --topsites [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --cisco [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --opendns (--list=<name>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --csv --file=<filename> [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --txt --file=<filename> [--all] [--ns|--mx|--srv=<service>]
 //
 //  Options:
 //    -h --help     Show this screen.
@@ -33,6 +33,11 @@ import (
 	"time"
 )
 
+type LookupQueryResult struct {
+	attempts int
+	result   interface{}
+}
+
 func main() {
 	usage := `Hellfire: PATHspider Effects List Resolver
 
@@ -41,12 +46,12 @@ PATHspider measurements. For sources where the filename is optional, the latest
 source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
-  hellfire --topsites [--file=<filename>] [--all]
-  hellfire --cisco [--file=<filename>] [--all]
-  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all]
-  hellfire --opendns (--list=<name>|--file=<filename>) [--all]
-  hellfire --csv --file=<filename> [--all]
-  hellfire --txt --file=<filename> [--all]
+  hellfire --topsites [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
+  hellfire --cisco [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
+  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
+  hellfire --opendns (--list=<name>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
+  hellfire --csv --file=<filename> [--all] [--ns|--mx|--srv=<service>]
+  hellfire --txt --file=<filename> [--all] [--ns|--mx|--srv=<service>]
 
 Options:
   -h --help     Show this screen.
@@ -58,6 +63,7 @@ Options:
 	//BUG(irl): Filenames are ignored
 	//BUG(irl): CSV type is ignored
 	//BUG(irl): TXT type is ignored
+	//BUG(irl): Can't actually select NS, MX or SRV lookup yet
 	if arguments["--topsites"].(bool) {
 		testList = new(inputs.AlexaTopsitesList)
 	} else if arguments["--cisco"].(bool) {
@@ -84,35 +90,75 @@ Options:
 	}
 }
 
+func makeQuery(domain string, lookupType string) LookupQueryResult {
+	result := []net.IP{}
+	domains := []string{}
+	lookupAttempt := 1
+
+	//BUG(irl): Need to add support for MX lookups
+	//BUG(irl): Need to add support for SRV lookups
+	if lookupType == "host" {
+		domains = append(domains, domain)
+	} else if lookupType == "ns" {
+		var nss []*net.NS
+		for {
+			nss, _ = net.LookupNS(domain)
+			if len(nss) == 0 {
+				time.Sleep(1)
+			} else {
+				break
+			}
+			lookupAttempt++
+			if lookupAttempt == 4 {
+				lookupAttempt = 3
+				break
+			}
+		}
+		for _, ns := range nss {
+			domains = append(domains, ns.Host)
+		}
+	}
+
+	for _, d := range domains {
+		var ips []net.IP
+		for {
+			ips, _ = net.LookupIP(d)
+			if len(ips) == 0 {
+				time.Sleep(1)
+			} else {
+				break
+			}
+			lookupAttempt++
+			if lookupAttempt == 4 {
+				lookupAttempt = 3
+				break
+			}
+		}
+		result = append(result, ips...)
+	}
+	return LookupQueryResult{lookupAttempt, result}
+}
+
 func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	jobs chan map[string]interface{},
-	results chan map[string]interface{}) {
+	results chan map[string]interface{},
+	lookupType string) {
 	lookupWaitGroup.Add(1)
-	go func(id int, lookupWaitGroup *sync.WaitGroup, jobs chan map[string]interface{}, results chan map[string]interface{}) {
+	go func(id int, lookupWaitGroup *sync.WaitGroup, jobs chan map[string]interface{}, results chan map[string]interface{}, lookupType string) {
 		defer lookupWaitGroup.Done()
 		for job := range jobs {
 			if job["domain"] == nil {
 				jobs <- make(map[string]interface{})
 				break
 			}
-			var attempt int
-			var ips []net.IP
-			for attempt = 1; ; attempt++ {
-				ips, _ = net.LookupIP(job["domain"].(string))
-				if len(ips) == 0 {
-					time.Sleep(1)
-				} else {
-					break
-				}
-				if attempt == 3 {
-					break
-				}
-			}
-			job["ips"] = ips
-			job["attempts"] = attempt
+			lookupResult := makeQuery(job["domain"].(string),
+				lookupType)
+			job["ips"] = lookupResult.result
+			job["lookupAttempts"] = lookupResult.attempts
+			job["lookupType"] = lookupType
 			results <- job
 		}
-	}(id, lookupWaitGroup, jobs, results)
+	}(id, lookupWaitGroup, jobs, results, lookupType)
 }
 
 func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, printAllResults bool) {
@@ -165,7 +211,7 @@ func performLookups(testList inputs.TestList, printAllResults bool) {
 
 	// Spawn lookup workers
 	for i := 0; i < 300; i++ {
-		lookupWorker(i, &lookupWaitGroup, jobs, results)
+		lookupWorker(i, &lookupWaitGroup, jobs, results, "host")
 	}
 
 	// Spawn output printer
