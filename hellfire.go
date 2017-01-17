@@ -6,12 +6,12 @@
 // BASIC USAGE
 //
 //  Usage:
-//    hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-//    hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-//    hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-//    hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-//    hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
 //
 //  Options:
 //    -h --help     Show this screen.
@@ -55,12 +55,12 @@ PATHspider measurements. For sources where the filename is optional, the latest
 source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
-  hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-  hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-  hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-  hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
-  hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
 
 Options:
   -h --help                           Show this screen.
@@ -126,7 +126,14 @@ Options:
 			outputType = "individual"
 		}
 
-		performLookups(testList, lookupType, outputType)
+		var canidAddress string
+		if arguments["--canid"] == nil {
+			canidAddress = ""
+		} else {
+			canidAddress = arguments["--canid"].(string)
+		}
+
+		performLookups(testList, lookupType, outputType, canidAddress)
 	} else {
 		panic("An error occured building the input provider")
 	}
@@ -221,7 +228,7 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	}(id, lookupWaitGroup, jobs, results, lookupType)
 }
 
-func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, outputType string) {
+func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, outputType string, canidAddress string) {
 	outputWaitGroup.Add(1)
 	go func(results chan map[string]interface{}) {
 		defer outputWaitGroup.Done()
@@ -239,6 +246,9 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 				for _, ipo := range ips {
 					ip := ipo.String()
 					result["ip"] = ip
+					if canidAddress != "" {
+						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
+					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
@@ -264,6 +274,9 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 						}
 					}
 					result["ip"] = ip
+					if canidAddress != "" {
+						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
+					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
@@ -273,7 +286,7 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 	}(results)
 }
 
-func performLookups(testList inputs.TestList, lookupType string, outputType string) {
+func performLookups(testList inputs.TestList, lookupType string, outputType string, canidAddress string) {
 	var lookupWaitGroup sync.WaitGroup
 	var outputWaitGroup sync.WaitGroup
 	jobs := make(chan map[string]interface{}, 1)
@@ -285,7 +298,7 @@ func performLookups(testList inputs.TestList, lookupType string, outputType stri
 	}
 
 	// Spawn output printer
-	outputPrinter(&outputWaitGroup, results, outputType)
+	outputPrinter(&outputWaitGroup, results, outputType, canidAddress)
 
 	// Submit jobs
 	testList.FeedJobs(jobs)
