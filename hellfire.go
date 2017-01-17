@@ -6,16 +6,25 @@
 // BASIC USAGE
 //
 //  Usage:
-//    hellfire --topsites [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
-//    hellfire --cisco [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
-//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
-//    hellfire --opendns (--list=<name>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
-//    hellfire --csv --file=<filename> [--all] [--ns|--mx|--srv=<service>]
-//    hellfire --txt --file=<filename> [--all] [--ns|--mx|--srv=<service>]
+//    hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+//    hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
 //
 //  Options:
 //    -h --help     Show this screen.
 //    --version     Show version.
+//
+// OUTPUT TYPES
+//
+// * "individual" - One record output per IP address looked up, discarding no
+// addresses.
+// * "array" - One record output per domain name, with an array of all
+// addresses resolved.
+// * "oneeach" - One record output per IP address, only printing one IPv4 and
+// one IPv6 at most for each domain.
 //
 // SEE ALSO
 //
@@ -46,16 +55,16 @@ PATHspider measurements. For sources where the filename is optional, the latest
 source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
-  hellfire --topsites [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
-  hellfire --cisco [--file=<filename>] [--all] [--ns|--mx|--srv=<service>]
-  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
-  hellfire --opendns (--list=<name>|--file=<filename>) [--all] [--ns|--mx|--srv=<service>]
-  hellfire --csv --file=<filename> [--all] [--ns|--mx|--srv=<service>]
-  hellfire --txt --file=<filename> [--all] [--ns|--mx|--srv=<service>]
+  hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --citizenlab (--country=<cc>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --opendns (--list=<name>|--file=<filename>) [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
+  hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>]
 
 Options:
-  -h --help     Show this screen.
-  --version     Show version.`
+  -h --help                           Show this screen.
+  --version                           Show version.`
 
 	arguments, _ := docopt.Parse(usage, nil, true, "Hellfire dev", false)
 
@@ -84,7 +93,40 @@ Options:
 		if arguments["--file"] != nil {
 			testList.SetFilename(arguments["--file"].(string))
 		}
-		performLookups(testList, arguments["--all"].(bool))
+
+		var lookupType string
+		supportedLookupTypes := []string{"host", "mx", "ns"}
+		if arguments["--type"] != nil {
+			for _, supportedType := range supportedLookupTypes {
+				if arguments["--type"].(string) == supportedType {
+					lookupType = arguments["--type"].(string)
+				}
+			}
+			if lookupType == "" {
+				panic("Unsupported lookup type requested.")
+				//BUG(irl): Should list the supported types.
+			}
+		} else {
+			lookupType = "host"
+		}
+
+		var outputType string
+		supportedOutputTypes := []string{"individual", "array", "oneeach"}
+		if arguments["--output"] != nil {
+			for _, supportedType := range supportedOutputTypes {
+				if arguments["--output"].(string) == supportedType {
+					outputType = arguments["--output"].(string)
+				}
+			}
+			if outputType == "" {
+				panic("Unsupported lookup type requested.")
+				//BUG(irl): Should list the supported types.
+			}
+		} else {
+			outputType = "individual"
+		}
+
+		performLookups(testList, lookupType, outputType)
 	} else {
 		panic("An error occured building the input provider")
 	}
@@ -103,6 +145,24 @@ func makeQuery(domain string, lookupType string) LookupQueryResult {
 		var nss []*net.NS
 		for {
 			nss, _ = net.LookupNS(domain)
+			if len(nss) == 0 {
+				time.Sleep(1)
+			} else {
+				break
+			}
+			lookupAttempt++
+			if lookupAttempt == 4 {
+				lookupAttempt = 3
+				break
+			}
+		}
+		for _, ns := range nss {
+			domains = append(domains, ns.Host)
+		}
+	} else if lookupType == "mx" {
+		var nss []*net.MX
+		for {
+			nss, _ = net.LookupMX(domain)
 			if len(nss) == 0 {
 				time.Sleep(1)
 			} else {
@@ -161,7 +221,7 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	}(id, lookupWaitGroup, jobs, results, lookupType)
 }
 
-func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, printAllResults bool) {
+func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, outputType string) {
 	outputWaitGroup.Add(1)
 	go func(results chan map[string]interface{}) {
 		defer outputWaitGroup.Done()
@@ -170,10 +230,20 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 			if result["domain"] == nil {
 				break
 			}
-			if printAllResults {
+			if outputType == "all" {
 				b, _ := json.Marshal(result)
 				fmt.Println(string(b))
-			} else {
+			} else if outputType == "individual" {
+				ips := result["ips"].([]net.IP)
+				delete(result, "ips")
+				for _, ipo := range ips {
+					ip := ipo.String()
+					result["ip"] = ip
+					b, _ := json.Marshal(result)
+					fmt.Println(string(b))
+					delete(result, "ip")
+				}
+			} else if outputType == "oneeach" {
 				found4 := false
 				found6 := false
 				ips := result["ips"].([]net.IP)
@@ -203,7 +273,7 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 	}(results)
 }
 
-func performLookups(testList inputs.TestList, printAllResults bool) {
+func performLookups(testList inputs.TestList, lookupType string, outputType string) {
 	var lookupWaitGroup sync.WaitGroup
 	var outputWaitGroup sync.WaitGroup
 	jobs := make(chan map[string]interface{}, 1)
@@ -211,11 +281,11 @@ func performLookups(testList inputs.TestList, printAllResults bool) {
 
 	// Spawn lookup workers
 	for i := 0; i < 300; i++ {
-		lookupWorker(i, &lookupWaitGroup, jobs, results, "host")
+		lookupWorker(i, &lookupWaitGroup, jobs, results, lookupType)
 	}
 
 	// Spawn output printer
-	outputPrinter(&outputWaitGroup, results, printAllResults)
+	outputPrinter(&outputWaitGroup, results, outputType)
 
 	// Submit jobs
 	testList.FeedJobs(jobs)
