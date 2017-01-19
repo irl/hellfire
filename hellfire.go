@@ -44,7 +44,7 @@ import (
 
 type LookupQueryResult struct {
 	attempts int
-	result   interface{}
+	result   []net.IP
 }
 
 func main() {
@@ -209,9 +209,15 @@ func makeQuery(domain string, lookupType string) LookupQueryResult {
 func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	jobs chan map[string]interface{},
 	results chan map[string]interface{},
-	lookupType string) {
+	lookupType string,
+        canidAddress string) {
 	lookupWaitGroup.Add(1)
-	go func(id int, lookupWaitGroup *sync.WaitGroup, jobs chan map[string]interface{}, results chan map[string]interface{}, lookupType string) {
+	go func(id int,
+                lookupWaitGroup *sync.WaitGroup,
+                jobs chan map[string]interface{},
+                results chan map[string]interface{},
+                lookupType string,
+                canidAddress string) {
 		defer lookupWaitGroup.Done()
 		for job := range jobs {
 			if job["domain"] == nil {
@@ -220,15 +226,24 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			}
 			lookupResult := makeQuery(job["domain"].(string),
 				lookupType)
-			job["ips"] = lookupResult.result
 			job["lookupAttempts"] = lookupResult.attempts
 			job["lookupType"] = lookupType
-			results <- job
+			for _, ip := range lookupResult.result {
+				thisResult := make(map[string]interface{})
+				for key, value := range job {
+					thisResult[key] = value
+				}
+				thisResult["ips"] = []net.IP{ip}
+                                if canidAddress != "" {
+				    thisResult["info"] = inputs.GetAdditionalInfo(ip, canidAddress)
+                                }
+				results <- thisResult
+			}
 		}
-	}(id, lookupWaitGroup, jobs, results, lookupType)
+	}(id, lookupWaitGroup, jobs, results, lookupType, canidAddress)
 }
 
-func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, outputType string, canidAddress string) {
+func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]interface{}, outputType string) {
 	outputWaitGroup.Add(1)
 	go func(results chan map[string]interface{}) {
 		defer outputWaitGroup.Done()
@@ -241,14 +256,14 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 				b, _ := json.Marshal(result)
 				fmt.Println(string(b))
 			} else if outputType == "individual" {
-				ips := result["ips"].([]net.IP)
+				ips := result["ips"]
+				if ips == nil {
+					continue
+				}
 				delete(result, "ips")
-				for _, ipo := range ips {
+				for _, ipo := range ips.([]net.IP) {
 					ip := ipo.String()
 					result["ip"] = ip
-					if canidAddress != "" {
-						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
-					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
@@ -274,9 +289,6 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 						}
 					}
 					result["ip"] = ip
-					if canidAddress != "" {
-						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
-					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
@@ -294,11 +306,11 @@ func performLookups(testList inputs.TestList, lookupType string, outputType stri
 
 	// Spawn lookup workers
 	for i := 0; i < 300; i++ {
-		lookupWorker(i, &lookupWaitGroup, jobs, results, lookupType)
+		lookupWorker(i, &lookupWaitGroup, jobs, results, lookupType, canidAddress)
 	}
 
 	// Spawn output printer
-	outputPrinter(&outputWaitGroup, results, outputType, canidAddress)
+	outputPrinter(&outputWaitGroup, results, outputType)
 
 	// Submit jobs
 	testList.FeedJobs(jobs)
