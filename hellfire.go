@@ -44,7 +44,7 @@ import (
 
 type LookupQueryResult struct {
 	attempts int
-	result   interface{}
+	result   []net.IP
 }
 
 func main() {
@@ -220,10 +220,17 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			}
 			lookupResult := makeQuery(job["domain"].(string),
 				lookupType)
-			job["ips"] = lookupResult.result
 			job["lookupAttempts"] = lookupResult.attempts
 			job["lookupType"] = lookupType
-			results <- job
+			for _, ip := range lookupResult.result {
+				thisResult := make(map[string]interface{})
+				for key, value := range job {
+					thisResult[key] = value
+				}
+				thisResult["ips"] = []net.IP{ip}
+				thisResult["info"] = inputs.GetAdditionalInfo(ip, "localhost:8081")
+				results <- thisResult
+			}
 		}
 	}(id, lookupWaitGroup, jobs, results, lookupType)
 }
@@ -241,14 +248,14 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 				b, _ := json.Marshal(result)
 				fmt.Println(string(b))
 			} else if outputType == "individual" {
-				ips := result["ips"].([]net.IP)
+				ips := result["ips"]
+				if ips == nil {
+					continue
+				}
 				delete(result, "ips")
-				for _, ipo := range ips {
+				for _, ipo := range ips.([]net.IP) {
 					ip := ipo.String()
 					result["ip"] = ip
-					if canidAddress != "" {
-						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
-					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
@@ -274,9 +281,6 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 						}
 					}
 					result["ip"] = ip
-					if canidAddress != "" {
-						result["info"] = inputs.GetAdditionalInfo(ipo, canidAddress)
-					}
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
 					delete(result, "ip")
