@@ -226,8 +226,8 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 			}
 			lookupResult := makeQuery(job["domain"].(string),
 				lookupType)
-			job["lookupAttempts"] = lookupResult.attempts
-			job["lookupType"] = lookupType
+			job["hellfire_lookup_attempts"] = lookupResult.attempts
+			job["hellfire_lookup_type"] = lookupType
 			for _, ip := range lookupResult.result {
 				thisResult := make(map[string]interface{})
 				for key, value := range job {
@@ -235,7 +235,7 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 				}
 				thisResult["ips"] = []net.IP{ip}
                                 if canidAddress != "" {
-				    thisResult["info"] = inputs.GetAdditionalInfo(ip, canidAddress)
+				    thisResult["canid_info"] = inputs.GetAdditionalInfo(ip, canidAddress)
                                 }
 				results <- thisResult
 			}
@@ -263,10 +263,10 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 				delete(result, "ips")
 				for _, ipo := range ips.([]net.IP) {
 					ip := ipo.String()
-					result["ip"] = ip
+					result["dip"] = ip
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
-					delete(result, "ip")
+					delete(result, "dip")
 				}
 			} else if outputType == "oneeach" {
 				found4 := false
@@ -288,10 +288,10 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 							found6 = true
 						}
 					}
-					result["ip"] = ip
+					result["dip"] = ip
 					b, _ := json.Marshal(result)
 					fmt.Println(string(b))
-					delete(result, "ip")
+					delete(result, "dip")
 				}
 			}
 		}
