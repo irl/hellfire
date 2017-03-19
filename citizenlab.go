@@ -1,4 +1,4 @@
-package inputs // import "pathspider.net/hellfire/inputs"
+package hellfire // import "pathspider.net/hellfire"
 
 import (
 	"fmt"

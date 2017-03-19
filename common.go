@@ -3,7 +3,7 @@
 // formatted using CSV and JSON schemas.
 //
 // Any method of importing missions must implement the TestList interface.
-package inputs // import "pathspider.net/hellfire/inputs"
+package hellfire // import "pathspider.net/hellfire"
 
 import (
 	"bytes"
