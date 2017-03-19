@@ -37,12 +37,21 @@ func prepareTestList(testListOptions string) TestList {
 		if options[1] != "" {
 			testList.(*OpenDNSList).SetListName(options[1])
 		}
-	} else {
-		return nil
 	}
 
 	if options[2] != "" {
-		testList.SetFilename(options[2])
+		if options[0] == "csv" {
+			testList = CSVListFromFile(options[2])
+		} else if options[0] == "txt" {
+			testList = CSVListFromFile(options[2])
+			testList.(*CSVList).SetHeader([]string{"domain"})
+		} else if testList != nil {
+			testList.SetFilename(options[2])
+		}
+	}
+
+	if testList == nil {
+		panic("Could not initialise a test list!")
 	}
 
 	return testList

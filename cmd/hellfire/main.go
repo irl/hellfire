@@ -62,10 +62,6 @@ Options:
 	var listVariant string
 	var listFilename string
 
-	//BUG(irl): CSV type is ignored
-	//BUG(irl): TXT type is ignored
-	//BUG(irl): Can't select SRV lookup yet
-
 	if arguments["--topsites"].(bool) {
 		listName = "topsites"
 	} else if arguments["--cisco"].(bool) {
@@ -84,6 +80,10 @@ Options:
 		} else {
 			listVariant = "top"
 		}
+	} else if arguments["--csv"].(bool) {
+		listName = "csv"
+	} else if arguments["--txt"].(bool) {
+		listName = "txt"
 	}
 
 	if arguments["--file"] != nil {
