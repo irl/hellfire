@@ -128,8 +128,11 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 	jobs chan map[string]interface{},
 	results chan map[string]interface{},
 	lookupType string,
-	canidAddress string) {
+	canidAddress string,
+	rateLimiter <-chan time.Time) {
+
 	lookupWaitGroup.Add(1)
+
 	go func(id int,
 		lookupWaitGroup *sync.WaitGroup,
 		jobs chan map[string]interface{},
@@ -142,6 +145,10 @@ func lookupWorker(id int, lookupWaitGroup *sync.WaitGroup,
 				jobs <- make(map[string]interface{})
 				break
 			}
+
+			// wait for a tick
+			<-rateLimiter
+
 			lookupResult := makeQuery(job["domain"].(string),
 				lookupType)
 			job["hellfire_lookup_attempts"] = lookupResult.attempts
@@ -216,17 +223,20 @@ func outputPrinter(outputWaitGroup *sync.WaitGroup, results chan map[string]inte
 	}(results)
 }
 
-func PerformLookups(testListOptions string, lookupType string, outputType string, canidAddress string) {
+func PerformLookups(testListOptions string, lookupType string, outputType string, canidAddress string, queriesPerSecond int) {
 	var lookupWaitGroup sync.WaitGroup
 	var outputWaitGroup sync.WaitGroup
 
 	jobs := make(chan map[string]interface{}, 1)
 	results := make(chan map[string]interface{})
-        testList := prepareTestList(testListOptions)
+	testList := prepareTestList(testListOptions)
+
+	// Create a rate limiting ticker
+	rateLimiter := time.Tick(time.Second / time.Duration(queriesPerSecond))
 
 	// Spawn lookup workers
 	for i := 0; i < 300; i++ {
-		lookupWorker(i, &lookupWaitGroup, jobs, results, lookupType, canidAddress)
+		lookupWorker(i, &lookupWaitGroup, jobs, results, lookupType, canidAddress, rateLimiter)
 	}
 
 	// Spawn output printer
