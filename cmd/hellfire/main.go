@@ -32,9 +32,10 @@
 package main
 
 import (
-	"github.com/docopt/docopt-go"
-	"pathspider.net/hellfire"
 	"strings"
+
+	docopt "github.com/docopt/docopt-go"
+	"pathspider.net/hellfire"
 )
 
 func main() {
@@ -61,6 +62,9 @@ Options:
 	var listName string
 	var listVariant string
 	var listFilename string
+
+	// FIXME replace this with docopts, i've given up trying to make it work (bht)
+	const queriesPerSecond = 10
 
 	if arguments["--topsites"].(bool) {
 		listName = "topsites"
@@ -130,5 +134,5 @@ Options:
 	}
 
 	testListOptions := strings.Join([]string{listName, listVariant, listFilename}, ";")
-	hellfire.PerformLookups(testListOptions, lookupType, outputType, canidAddress)
+	hellfire.PerformLookups(testListOptions, lookupType, outputType, canidAddress, queriesPerSecond)
 }
