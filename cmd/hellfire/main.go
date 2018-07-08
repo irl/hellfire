@@ -6,12 +6,12 @@
 // BASIC USAGE
 //
 //  Usage:
-//    hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-//    hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-//    hellfire --citizenlab [--country=<cc>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-//    hellfire --opendns [--list=<name>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-//    hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-//    hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+//    hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+//    hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+//    hellfire --citizenlab [--country=<cc>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+//    hellfire --opendns [--list=<name>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+//    hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+//    hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
 //
 //  Options:
 //    -h --help     Show this screen.
@@ -32,7 +32,10 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"strings"
+	"strconv"
 
 	docopt "github.com/docopt/docopt-go"
 	"pathspider.net/hellfire"
@@ -46,12 +49,12 @@ PATHspider measurements. For sources where the filename is optional, the latest
 source will be downloaded from the Internet when the filename is omitted.
 
 Usage:
-  hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-  hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-  hellfire --citizenlab [--country=<cc>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-  hellfire --opendns [--list=<name>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-  hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
-  hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>]
+  hellfire --topsites [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+  hellfire --cisco [--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+  hellfire --citizenlab [--country=<cc>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+  hellfire --opendns [--list=<name>|--file=<filename>] [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+  hellfire --csv --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
+  hellfire --txt --file=<filename> [--output=<individual|array|oneeach>] [--type=<host|ns|mx>] [--canid=<canid address>] [--rate=<qps>]
 
 Options:
   -h --help                           Show this screen.
@@ -62,9 +65,6 @@ Options:
 	var listName string
 	var listVariant string
 	var listFilename string
-
-	// FIXME replace this with docopts, i've given up trying to make it work (bht)
-	const queriesPerSecond = 10
 
 	if arguments["--topsites"].(bool) {
 		listName = "topsites"
@@ -92,6 +92,17 @@ Options:
 
 	if arguments["--file"] != nil {
 		listFilename = arguments["--file"].(string)
+	}
+
+	var queriesPerSecond = 10
+
+	if arguments["--rate"] != nil {
+		var err error
+		queriesPerSecond, err = strconv.Atoi(arguments["--rate"].(string))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(2)
+		}
 	}
 
 	var lookupType string
